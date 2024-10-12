@@ -14,6 +14,7 @@ demo = gr.Interface(
     fn=greet,
     inputs=[gr.Textbox(), gr.Slider(minimum=0, maximum=10, step=1)],
     outputs=[gr.TextArea()],
+    flagging_mode='never'
 )
 
 demo.launch()
