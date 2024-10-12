@@ -1,19 +1,33 @@
+import env
 import gradio as gr
 import google.generativeai as genai
-import env
+from diffusers import AutoPipelineForText2Image
+import torch
 
 genai.configure(api_key=env.GEMINI_API_KEY)
 gemini_model = genai.GenerativeModel('gemini-1.5-flash')
 
-def greet(name, extravagance):
-    prompt = f'Greet someone named ${name}. On a scale of 0 to 10, where 0 is the most straightforward and 10 is the most extravagant, you should be at a ${extravagance}.'
-    response = gemini_model.generate_content(prompt)
-    return response.text
+sdxl_pipeline = AutoPipelineForText2Image.from_pretrained("stabilityai/sdxl-turbo", torch_dtype=torch.float16, variant="fp16")
+sdxl_pipeline.to("cuda")
+
+def describe_image(image):
+    # if image is None:
+    #     return 'No image provided!'
+
+    # gemini_prompt = 'Read the text in the provided image.'
+    # response = gemini_model.generate_content([gemini_prompt, image])
+
+    # return response.text
+
+    sdxl_prompt = "a dog with a wizard hat"
+    image = sdxl_pipeline(prompt=sdxl_prompt, num_inference_steps=1, guidance_scale=0.0).images[0]
+    return image
 
 demo = gr.Interface(
-    fn=greet,
-    inputs=[gr.Textbox(), gr.Slider(minimum=0, maximum=10, step=1)],
-    outputs=[gr.TextArea()],
+    fn=describe_image,
+    inputs=[gr.Image(type='pil')],
+    # outputs=[gr.TextArea()],
+    outputs=[gr.Image(type='pil')],
     flagging_mode='never'
 )
 
