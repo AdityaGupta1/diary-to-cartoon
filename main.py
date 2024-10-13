@@ -42,9 +42,12 @@ Each prompt should be independent and should fully repeat the description of the
 
     image_prompts = response.text.split('\n-----\n')
 
+    image_prompt_suffix = 'cartoon style, soft rounded edges, expressive characters, simple shading'
+
     images = []
     for image_prompt in image_prompts:
-        image = sdxl_pipeline(prompt=image_prompt, num_inference_steps=1, guidance_scale=0.0).images[0]
+        modified_image_prompt = image_prompt + ' ' + image_prompt_suffix
+        image = sdxl_pipeline(prompt=modified_image_prompt, num_inference_steps=2, guidance_scale=0.0).images[0]
         images.append(image)
 
     width, height = images[0].size
@@ -58,12 +61,12 @@ Each prompt should be independent and should fully repeat the description of the
     new_image.paste(images[2], (0, height))
     new_image.paste(images[3], (width, height))
 
-    return new_image
+    return new_image, response.text
 
 demo = gr.Interface(
     fn=describe_image,
     inputs=[gr.Image(type='pil', label='diary entry'), gr.Image(type='pil', label='diary author')],
-    outputs=[gr.Image(type='pil')],
+    outputs=[gr.Image(type='pil', label='comic'), gr.TextArea(label='prompts (debug)')],
     flagging_mode='never'
 )
 
