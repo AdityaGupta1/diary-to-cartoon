@@ -10,8 +10,8 @@ num_panels = 4
 genai.configure(api_key=env.GEMINI_API_KEY)
 gemini_model = genai.GenerativeModel('gemini-1.5-flash')
 
-sdxl_pipeline = AutoPipelineForText2Image.from_pretrained("stabilityai/sdxl-turbo", torch_dtype=torch.float16, variant="fp16")
-sdxl_pipeline.to("cuda")
+pipe = AutoPipelineForText2Image.from_pretrained("stabilityai/sdxl-turbo", torch_dtype=torch.float16, variant="fp16")
+pipe.to("cuda")
 
 def describe_image(diary_image, author_image):
     if diary_image is None or author_image is None:
@@ -125,7 +125,7 @@ Do not include any extra text as your response will be used as a string in a Pyt
     for i in range(num_panels):
         progress2((i, num_panels), 'generating images...')
         modified_image_prompt = image_prompts[i] + ' ' + image_prompt_suffix
-        image = sdxl_pipeline(prompt=modified_image_prompt, num_inference_steps=2, guidance_scale=0.0).images[0]
+        image = pipe(prompt=modified_image_prompt, num_inference_steps=1, guidance_scale=0.0).images[0]
         images.append(image)
 
     width, height = images[0].size
