@@ -6,7 +6,6 @@ import torch
 from PIL import Image
 
 genai.configure(api_key=env.GEMINI_API_KEY)
-#genai.configure(api_key='AIzaSyDpQAAxRMfUlHSwxrag377ybhQZ7-Q_1lw')
 
 gemini_model = genai.GenerativeModel('gemini-1.5-flash')
 
