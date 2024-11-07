@@ -1,9 +1,17 @@
 import env
 import gradio as gr
 import google.generativeai as genai
+from google.cloud import vision
 from diffusers import AutoPipelineForText2Image
 import torch
 from PIL import Image
+
+# Importing Tool modules
+import ocr_module
+
+# Set up the Vision API using Credential file
+client = vision.ImageAnnotatorClient.from_service_account_file(env.GOOGLE_VISION_API_KEY_PATH)
+
 
 genai.configure(api_key=env.GEMINI_API_KEY)
 gemini_model = genai.GenerativeModel('gemini-1.5-flash')
@@ -15,22 +23,17 @@ def describe_image(diary_image, author_image):
     if diary_image is None or author_image is None:
         # TODO: actual error message
         return
-
+    # OCR Set Up
     num_gemini_steps = 3
     current_gemini_step = 0
+    
     progress = gr.Progress()
-    progress((current_gemini_step, num_gemini_steps), 'reading diary...')
-    current_gemini_step += 1
+    progress(0.2, 'Reading text from diary image...')
 
-    gemini_prompt = '''
-Read the text in the image and output it. The image is of a diary entry, so it may be written in cursive or some other fancy script.
-
-Remove any references to copyrighted material and replace them with some generic text.
-
-Do not include any extra text, as your response will be used verbatim in a Python program for further processing.
-    '''
-    response = gemini_model.generate_content([gemini_prompt, diary_image])
-    diary_contents = response.text.strip()
+    orc_texts, img = ocr_module.get_ocr_texts(diary_image=diary_image)
+    diary_contents = ocr_module.validate_and_consolidate_with_gemini(orc_texts, img)
+    
+    print(diary_contents)
 
     progress((current_gemini_step, num_gemini_steps), 'generating prompts v1...')
     current_gemini_step += 1
