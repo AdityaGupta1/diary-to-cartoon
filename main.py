@@ -34,6 +34,7 @@ def describe_image(diary_image, author_image):
     orc_texts, img = ocr_module.get_ocr_texts(diary_image=diary_image)
     diary_contents = ocr_module.validate_and_consolidate_with_gemini(orc_texts, img)
     
+    # for debugging only
     print(diary_contents)
 
     progress((current_gemini_step, num_gemini_steps), 'generating prompts v1...')
@@ -162,7 +163,6 @@ Output your choices in a comma-delimited list, with 0 being the left-most image 
     comic_width = image_width * 2
     comic_height = image_height * 2
     comic_image = Image.new('RGB', (comic_width, comic_height))
-
     panel_indices = []
     for i in range(num_panels):
         panel_indices.append(i * num_variations_per_panel + variation_selections[i])
@@ -175,20 +175,125 @@ Output your choices in a comma-delimited list, with 0 being the left-most image 
     modified_image_prompts_text = "\n\n".join(modified_image_prompts)
     return comic_image, variation_selections, variations_image, modified_image_prompts_text, diary_contents
 
-demo = gr.Interface(
-    fn = describe_image,
-    inputs = [
-        gr.Image(type='pil', label='diary entry'),
-        gr.Image(type='pil', label='diary author')
-    ],
-    outputs = [
-        gr.Image(type='pil', label='comic'),
-        gr.TextArea(label='variation selections (debug)'),
-        gr.Image(type='pil', label='variations (debug)'),
-        gr.TextArea(label='modified image prompts (debug)'),
-        gr.TextArea(label='diary contents')
-    ],
-    flagging_mode = 'never'
-)
+def regenerate_comic(diary_image, author_image, history):
+    """
+    Function to handle regeneration of the comic translation
+    Returns a new processed result using the same inputs
+    """
+    if diary_image is None or author_image is None:
+        return None, None, None, None, None, history
+    
+    # Process the comic again
+    comic_image, variation_selections, variations_image, modified_image_prompts_text, diary_contents = describe_image(diary_image, author_image)
+    
+    # Add to history (optional)
+    history = history or []
+    history.append((comic_image, variation_selections, variations_image, modified_image_prompts_text, diary_contents))
+    
+    return comic_image, variation_selections, variations_image, modified_image_prompts_text, diary_contents, history
 
-demo.launch(share=False)
+def replace_panel(comic_image, variations_image, panel_index, variation_index):
+    """
+    Replace a specific panel in the comic with a selected variation
+    Args:
+        comic_image: Current comic image with 4 panels
+        variations_image: Image containing all variations
+        panel_index: Which panel to replace (0-3)
+        variation_index: Which variation to use (0-1)
+    """
+    if comic_image is None or variations_image is None:
+        return None
+    
+    # Convert to PIL Image if needed
+    if not isinstance(comic_image, Image.Image):
+        comic_image = Image.fromarray(comic_image)
+    if not isinstance(variations_image, Image.Image):
+        variations_image = Image.fromarray(variations_image)
+    
+    # Calculate dimensions
+    panel_width = comic_image.width // 2
+    panel_height = comic_image.height // 2
+    
+    # Calculate source coordinates in variations image
+    src_x = variation_index * panel_width
+    src_y = panel_index * panel_height
+    src_box = (src_x, src_y, src_x + panel_width, src_y + panel_height)
+    
+    # Calculate target coordinates in comic image
+    target_x = (panel_index % 2) * panel_width
+    target_y = (panel_index // 2) * panel_height
+    
+    # Create a copy of the comic image
+    new_comic = comic_image.copy()
+    
+    # Extract and paste the selected variation
+    variation_panel = variations_image.crop(src_box)
+    new_comic.paste(variation_panel, (target_x, target_y))
+    
+    return new_comic
+
+# Replace the gr.Interface section with this Blocks implementation
+demo = gr.Blocks(theme=gr.themes.Soft())
+
+with demo:
+    gr.Markdown("# Image To Comic")
+    
+    with gr.Row():
+        diary_input = gr.Image(type='pil', label='diary entry')
+        author_input = gr.Image(type='pil', label='diary author')
+    
+    with gr.Row():
+        submit_btn = gr.Button("Generate Comic", variant="primary")
+        regenerate_btn = gr.Button("Regenerate All", variant="secondary")
+    
+    with gr.Column():
+        comic_output = gr.Image(type='pil', label='Final Comic')
+        
+        with gr.Row():
+            variations_image = gr.Image(type='pil', label='Available Variations')
+        
+        with gr.Row():
+            with gr.Column():
+                panel_index = gr.Dropdown(
+                    choices=["Panel 1", "Panel 2", "Panel 3", "Panel 4"],
+                    value="Panel 1",
+                    label="Select Panel to Replace",
+                    type="index"
+                )
+                variation_index = gr.Radio(
+                    choices=["Variation 1", "Variation 2"],
+                    value="Variation 1",
+                    label="Choose Variation",
+                    type="index"
+                )
+                replace_btn = gr.Button("Replace Panel", variant="primary")
+        
+        with gr.Accordion("Debug Information", open=False):
+            variation_selections = gr.TextArea(label='variation selections (debug)')
+            modified_prompts = gr.TextArea(label='modified image prompts (debug)')
+            diary_contents = gr.TextArea(label='diary contents')
+    
+    # Hidden state for history
+    history = gr.State([])
+    
+    # Set up click events
+    submit_btn.click(
+        fn=describe_image,
+        inputs=[diary_input, author_input],
+        outputs=[comic_output, variation_selections, variations_image, modified_prompts, diary_contents]
+    )
+    
+    regenerate_btn.click(
+        fn=regenerate_comic,
+        inputs=[diary_input, author_input, history],
+        outputs=[comic_output, variation_selections, variations_image, modified_prompts, diary_contents, history]
+    )
+    
+    replace_btn.click(
+        fn=replace_panel,
+        inputs=[comic_output, variations_image, panel_index, variation_index],
+        outputs=[comic_output]
+    )
+
+if __name__ == "__main__":
+    demo.launch(share=False)
