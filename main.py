@@ -14,6 +14,7 @@ client = vision.ImageAnnotatorClient.from_service_account_file(env.GOOGLE_VISION
 
 
 genai.configure(api_key=env.GEMINI_API_KEY)
+
 gemini_model = genai.GenerativeModel('gemini-1.5-flash')
 
 pipe = AutoPipelineForText2Image.from_pretrained("stabilityai/sdxl-turbo", torch_dtype=torch.float16, variant="fp16")
@@ -39,6 +40,34 @@ def describe_image(diary_image, author_image):
     current_gemini_step += 1
 
     gemini_prompt = f'''
+    Here are example descriptions of individuals, based on their images. These examples serve as guidelines for style and structure:
+
+    A black American man in his early to mid-30s with a dark complexion, a full, thick black beard, braided hair, and an oval face shape, wearing a blue sports jersey
+    -----
+    A white American man in his late 20s to early 30s, with a close-cropped haircut, a short beard, and an oval face shape, wearing glasses and a black hoodie with a small white logo
+    -----
+    A Korean woman in her early 20s, with long, wavy reddish-brown hair styled in pigtails, straight bangs, and a round face shape, wearing a white button-up shirt
+    -----
+    A Filipino woman in her 60s or 70s, with short, slightly wavy dark hair, and a round face shape, wearing a bright pink sweater
+    -----
+    A Korean woman in her early 20s, with long, straight black hair, a heart-shaped face, and a light blue tank top with thin black straps
+    -----
+    A Pakistani man in his 60s or 70s, with short, graying hair, a prominent, weathered face with deep wrinkles, and a salt-and-pepper beard, wearing a light-colored collared shirt
+    -----
+    A Filipino-American man in his 30s, with medium brown skin, styled curly hair, and a thin mustache, wearing large red-tinted sunglasses, a retro-style patterned suit with a wide collar, and layered necklaces
+    -----
+    An Italian man in his 30s or 40s with a light complexion and a neatly trimmed beard, wearing a black fedora hat with a brown band, a dark, textured overcoat with a double-breasted design, and a dark undershirt
+
+    Use these examples to generate a description of the individual in the attached image.
+    Describe their features such as age, ethnicity, complexion, hair, clothing, clothing color, face shape, or other distinguishing characteristics in a similar style.
+    Keep the description within one sentence as it will be used to generate comic prompts.
+    '''
+    response = gemini_model.generate_content([gemini_prompt, author_image])
+    author_description = response.text.strip()
+    progress((current_gemini_step, num_gemini_steps), 'generating prompts v1...')
+    current_gemini_step += 1
+
+    gemini_prompt = f'''
 Here is a diary entry:
 
 {diary_contents}
@@ -53,7 +82,7 @@ Prompt 3
 -----
 Prompt 4
 
-The diary's author is shown in the attached image, so use that in the prompts.
+The diary's author is described as follows: {author_description}. Use this in the prompts to ensure consistency.
 Include the author's color or race as well as other distinguishing characteristics to keep the prompts consistent.
 
 Prompts should be written in the third person.
@@ -61,13 +90,13 @@ Prompts should be one sentence at most.
 
 Here is an example of good output:
 
-A Polynesian man with short black hair, a green tank top, and glasses eating waffles and drinking orange juice at a table.
+{author_description} eating waffles and drinking orange juice at a table.
 -----
-A Polynesian man with short black hair, a green tank top, and glasses sitting in a lecture hall, learning about macroeconomics.
+{author_description} sitting in a lecture hall, learning about macroeconomics.
 -----
-A Polynesian man with short black hair, a green tank top, and glasses at a birthday party with his friends, blowing out the candles on a cake.
+{author_description} at a birthday party with his friends, blowing out the candles on a cake.
 -----
-A Polynesian man with short black hair, a green tank top, and glasses getting drunk with his friends at a karaoke bar.
+{author_description} getting drunk with his friends at a karaoke bar.
 
 Each prompt should fully repeat the description of the author.
 Prompts should not refer to other prompts.
@@ -75,7 +104,7 @@ Assume that the four prompts will be used in four separate contexts.
 
 Do not include any extra text as your response will be used as a string in a Python program and it needs to be concise.
     '''
-    response = gemini_model.generate_content([gemini_prompt, author_image])
+    response = gemini_model.generate_content([gemini_prompt])
     prompts_v1 = response.text.strip()
 
     image_prompts = prompts_v1.split('\n-----\n')
