@@ -116,7 +116,7 @@ Do not include any extra text as your response will be used as a string in a Pyt
     modified_image_prompts = [prompt_editor(prompt) for prompt in image_prompts]
 
     num_panels = 4
-    num_variations_per_panel = 2
+    num_variations_per_panel = 4
 
     images = []
     for panel_idx in range(num_panels):
@@ -199,7 +199,7 @@ def replace_panel(comic_image, variations_image, panel_index, variation_index):
         comic_image: Current comic image with 4 panels
         variations_image: Image containing all variations
         panel_index: Which panel to replace (0-3)
-        variation_index: Which variation to use (0-1)
+        variation_index: Which variation to use (0-3)
     """
     if comic_image is None or variations_image is None:
         return None
@@ -245,13 +245,6 @@ with demo:
     with gr.Row():
         submit_btn = gr.Button("Generate Comic", variant="primary")
         regenerate_btn = gr.Button("Regenerate All", variant="secondary")
-    
-    with gr.Column():
-        comic_output = gr.Image(type='pil', label='Final Comic')
-        
-        with gr.Row():
-            variations_image = gr.Image(type='pil', label='Available Variations')
-        
         with gr.Row():
             with gr.Column():
                 panel_index = gr.Dropdown(
@@ -260,13 +253,20 @@ with demo:
                     label="Select Panel to Replace",
                     type="index"
                 )
-                variation_index = gr.Radio(
-                    choices=["Variation 1", "Variation 2"],
+                variation_index = gr.Dropdown(
+                    choices=["Variation 1", "Variation 2", "Variation 3", "Variation 4"],
                     value="Variation 1",
                     label="Choose Variation",
                     type="index"
                 )
                 replace_btn = gr.Button("Replace Panel", variant="primary")
+    
+    with gr.Column():
+        comic_output = gr.Image(type='pil', label='Final Comic')
+        
+        with gr.Row():
+            variations_image = gr.Image(type='pil', label='Available Variations')
+        
         
         with gr.Accordion("Debug Information", open=False):
             variation_selections = gr.TextArea(label='variation selections (debug)')
