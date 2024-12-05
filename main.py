@@ -187,26 +187,6 @@ Output your choices in a comma-delimited list, with 0 being the left-most image 
     # Return the images for each gallery
     return comic_image, variation_selections, *variation_galleries, modified_image_prompts_text, diary_contents, *selected_indices, variations_image
 
-def regenerate_comic(diary_image, author_image, history):
-    """
-    Function to handle regeneration of the comic translation
-    Returns a new processed result using the same inputs
-    """
-    if diary_image is None or author_image is None:
-        # Error message
-        gr.Warning("Please upload both images before regenerating the comic.")
-        return None, None, None, None, None, history
-    
-    # Process the comic again
-    comic_image, variation_selections, *gallery_images, modified_image_prompts_text, diary_contents = describe_image(diary_image, author_image)
-    
-    # Add to history (optional)
-    history = history or []
-    history.append((comic_image, variation_selections, *gallery_images, modified_image_prompts_text, diary_contents))
-    
-    # Add the variation image
-    
-    return comic_image, variation_selections, *gallery_images, modified_image_prompts_text, diary_contents,  history
 
 def replace_panel(comic_image, variations_image, *selected_indices):
     """
@@ -254,7 +234,7 @@ def replace_panel(comic_image, variations_image, *selected_indices):
     
     return new_comic
 
-# UI Design
+# UI design
 # Define the UI elements
 demo = gr.Blocks(theme=gr.themes.Soft())
 with demo:
@@ -267,17 +247,15 @@ with demo:
     
     with gr.Row():
         submit_btn = gr.Button("Generate Comic", variant="primary")
-        regenerate_btn = gr.Button("Regenerate All", variant="secondary")
-        with gr.Row():
-            with gr.Column():
-                replace_btn = gr.Button("Replace Panel", variant="primary")
     
     variation_galleries = [] # Keep track of the gallery
     selected_indices = [] # Keep track of selected indices
     
     with gr.Column():
         comic_output = gr.Image(type='pil', label='Final Comic')
-        
+        with gr.Row():
+            regenerate_btn = gr.Button("Regenerate All", variant="secondary")
+            replace_btn = gr.Button("Replace Panel", variant="primary")
         # Define the variation galleries section
         with gr.Row():
             for i in range(4):
@@ -345,9 +323,17 @@ with demo:
     )
     
     regenerate_btn.click(
-        fn=regenerate_comic,
-        inputs=[diary_input, author_input, history],
-        outputs=[comic_output, variation_selections, *variation_galleries, modified_prompts, diary_contents, history]
+        fn=describe_image,
+        inputs=[diary_input, author_input],
+        outputs=[
+            comic_output, 
+            variation_selections, 
+            *variation_galleries, 
+            modified_prompts, 
+            diary_contents, 
+            *selected_indices,
+            variations_image
+        ]
     )
     
     replace_btn.click(
