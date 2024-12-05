@@ -23,6 +23,7 @@ pipe.to("cuda")
 def describe_image(diary_image, author_image):
     if diary_image is None or author_image is None:
         # TODO: actual error message
+        gr.Warning("Please upload both images before generating the comic.")
         return
     # OCR Set Up
     num_gemini_steps = 3
@@ -173,7 +174,19 @@ Output your choices in a comma-delimited list, with 0 being the left-most image 
     comic_image.paste(images[panel_indices[3]], (image_width, image_height))
 
     modified_image_prompts_text = "\n\n".join(modified_image_prompts)
-    return comic_image, variation_selections, variations_image, modified_image_prompts_text, diary_contents
+
+    # Initialize selected indices
+    selected_indices = [variation_selections[i] for i in range(len(variation_selections))]
+     
+    # Prepare images for each gallery
+    variation_galleries = [[] for _ in range(num_panels)]
+    for panel_idx in range(num_panels):
+        for variation_idx in range(num_variations_per_panel):
+            variation_galleries[panel_idx].append(images[panel_idx * num_variations_per_panel + variation_idx])
+            variation_galleries[panel_idx].selected_index = selected_indices[panel_idx]
+
+    # Return the images for each gallery
+    return comic_image, variation_selections, *variation_galleries, modified_image_prompts_text, diary_contents, *selected_indices
 
 def regenerate_comic(diary_image, author_image, history):
     """
@@ -181,61 +194,54 @@ def regenerate_comic(diary_image, author_image, history):
     Returns a new processed result using the same inputs
     """
     if diary_image is None or author_image is None:
+        # Error message
+        gr.Warning("Please upload both images before regenerating the comic.")
         return None, None, None, None, None, history
     
     # Process the comic again
-    comic_image, variation_selections, variations_image, modified_image_prompts_text, diary_contents = describe_image(diary_image, author_image)
+    comic_image, variation_selections, *gallery_images, modified_image_prompts_text, diary_contents = describe_image(diary_image, author_image)
     
     # Add to history (optional)
     history = history or []
-    history.append((comic_image, variation_selections, variations_image, modified_image_prompts_text, diary_contents))
+    history.append((comic_image, variation_selections, *gallery_images, modified_image_prompts_text, diary_contents))
     
-    return comic_image, variation_selections, variations_image, modified_image_prompts_text, diary_contents, history
+    return comic_image, variation_selections, *gallery_images, modified_image_prompts_text, diary_contents, history
 
-def replace_panel(comic_image, variations_image, panel_index, variation_index):
+def replace_panel(comic_image, variation_galleries):
     """
-    Replace a specific panel in the comic with a selected variation
+    Replace panels in the comic with selected variations from galleries
     Args:
         comic_image: Current comic image with 4 panels
-        variations_image: Image containing all variations
-        panel_index: Which panel to replace (0-3)
-        variation_index: Which variation to use (0-3)
+        gallery1-4: Gallery components containing the selected images
     """
-    if comic_image is None or variations_image is None:
-        return None
+    # If comic image is none, then simply return the comic image
+    if comic_image is None:
+        return comic_image
     
     # Convert to PIL Image if needed
     if not isinstance(comic_image, Image.Image):
         comic_image = Image.fromarray(comic_image)
-    if not isinstance(variations_image, Image.Image):
-        variations_image = Image.fromarray(variations_image)
     
-    # Calculate dimensions
+    # Calculate dimensions of the comic image
     panel_width = comic_image.width // 2
     panel_height = comic_image.height // 2
-    
-    # Calculate source coordinates in variations image
-    src_x = variation_index * panel_width
-    src_y = panel_index * panel_height
-    src_box = (src_x, src_y, src_x + panel_width, src_y + panel_height)
-    
-    # Calculate target coordinates in comic image
-    target_x = (panel_index % 2) * panel_width
-    target_y = (panel_index // 2) * panel_height
     
     # Create a copy of the comic image
     new_comic = comic_image.copy()
     
-    # Extract and paste the selected variation
-    variation_panel = variations_image.crop(src_box)
-    new_comic.paste(variation_panel, (target_x, target_y))
-    
+    # Replace panels that have selections
+    for panel_index in range(len(variation_galleries)):
+        gallery = variation_galleries[panel_index]
+             
+
     return new_comic
 
-# Replace the gr.Interface section with this Blocks implementation
-demo = gr.Blocks(theme=gr.themes.Soft())
 
+# UI Design
+# Define the UI elements
+demo = gr.Blocks(theme=gr.themes.Soft())
 with demo:
+    # @TODO: Set the title to be the center of the page
     gr.Markdown("# Image To Comic")
     
     with gr.Row():
@@ -247,27 +253,33 @@ with demo:
         regenerate_btn = gr.Button("Regenerate All", variant="secondary")
         with gr.Row():
             with gr.Column():
-                panel_index = gr.Dropdown(
-                    choices=["Panel 1", "Panel 2", "Panel 3", "Panel 4"],
-                    value="Panel 1",
-                    label="Select Panel to Replace",
-                    type="index"
-                )
-                variation_index = gr.Dropdown(
-                    choices=["Variation 1", "Variation 2", "Variation 3", "Variation 4"],
-                    value="Variation 1",
-                    label="Choose Variation",
-                    type="index"
-                )
                 replace_btn = gr.Button("Replace Panel", variant="primary")
+    
+    variation_galleries = [] # Keep track of the gallery
+    selected_indices = [] # Keep track of selected indices
     
     with gr.Column():
         comic_output = gr.Image(type='pil', label='Final Comic')
         
+        # Define the variation galleries section
         with gr.Row():
-            variations_image = gr.Image(type='pil', label='Available Variations')
-        
-        
+            
+            for i in range(4):
+                with gr.Column():
+                    selected_index = gr.Number(label=f'Selected Index for Panel {i+1}')
+                    selected_indices.append(selected_index)
+                    # Set the selected index for the gallery
+                    gallery = gr.Gallery(
+                        label=f'Panel {i+1} Variations',
+                        columns=4,
+                        allow_preview=True,
+                        show_label=True,
+                        selected_index=selected_index
+                    )
+                    
+                    variation_galleries.append(gallery)
+                    
+                 
         with gr.Accordion("Debug Information", open=False):
             variation_selections = gr.TextArea(label='variation selections (debug)')
             modified_prompts = gr.TextArea(label='modified image prompts (debug)')
@@ -276,22 +288,56 @@ with demo:
     # Hidden state for history
     history = gr.State([])
     
+    
+    
+    # Callbacks and Event handlers
+    
+    def get_select_index(evt: gr.SelectData):
+        '''
+        Get the index of the selected image in the current gallery
+        '''
+        gr.Warning(f"Selected index: {evt.index}")
+        return evt.index
+    
+    # Set the callback for each gallery when the selection changes
+    for i, gallery in enumerate(variation_galleries):
+        # Update the callback to work with gr.State
+        selected_index = selected_indices[i]
+        gallery.select(
+            fn=get_select_index,
+            inputs=None,
+            outputs=selected_index
+        )
+    # Define Different Click Events 
     # Set up click events
     submit_btn.click(
         fn=describe_image,
         inputs=[diary_input, author_input],
-        outputs=[comic_output, variation_selections, variations_image, modified_prompts, diary_contents]
+        outputs=[
+            comic_output, 
+            variation_selections, 
+            *variation_galleries, 
+            modified_prompts, 
+            diary_contents, 
+            *selected_indices
+        ]
     )
     
     regenerate_btn.click(
         fn=regenerate_comic,
         inputs=[diary_input, author_input, history],
-        outputs=[comic_output, variation_selections, variations_image, modified_prompts, diary_contents, history]
+        outputs=[comic_output, variation_selections, *variation_galleries, modified_prompts, diary_contents, history]
     )
     
     replace_btn.click(
         fn=replace_panel,
-        inputs=[comic_output, variations_image, panel_index, variation_index],
+        inputs=[
+            comic_output,
+            variation_galleries[0],  # Pass each gallery individually
+            variation_galleries[1],
+            variation_galleries[2],
+            variation_galleries[3],
+        ],
         outputs=[comic_output]
     )
 
