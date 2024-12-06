@@ -8,7 +8,7 @@ import numpy as np
 from difflib import SequenceMatcher
 import google.generativeai as genai
 genai.configure(api_key=env.GEMINI_API_KEY)
-
+genai.configure(api_key="AIzaSyCw49iyoPsrlNwON9hX5-CMamftXyYPXQQ")
 
 '''
 This file is used to test the validity of OCR tools used in this project
@@ -123,7 +123,7 @@ def preprocess_pipeline_03(img):
 
 
 def ocr_image(image_bytes):
-    '''
+    ''' 
     Performs OCR on the given image bytes and returns the extracted text
     '''
     client = vision.ImageAnnotatorClient.from_service_account_file(env.GOOGLE_VISION_API_KEY_PATH)

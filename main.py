@@ -11,7 +11,7 @@ import ocr_module
 
 # Set up the Vision API using Credential file
 client = vision.ImageAnnotatorClient.from_service_account_file(env.GOOGLE_VISION_API_KEY_PATH)
-
+# genai.configure(api_key="AIzaSyCw49iyoPsrlNwON9hX5-CMamftXyYPXQQ")
 genai.configure(api_key=env.GEMINI_API_KEY)
 
 gemini_model = genai.GenerativeModel('gemini-1.5-flash')
@@ -30,12 +30,15 @@ def debug_print(title, contents):
     print()
 
 
-def describe_image(diary_image, author_image):
+def describe_image(diary_image, author_image, style_input):
     if diary_image is None or author_image is None:
         gr.Warning("Please upload both images before generating the comic.")
         return
-    # OCR Set Up
+    elif style_input is None:
+        gr.Warning("Please choose a style before generating the comic.")
+        return
     
+    # OCR Set Up
     progress = gr.Progress()
     progress(0, 'reading text from diary image...')
 
@@ -43,6 +46,25 @@ def describe_image(diary_image, author_image):
     diary_contents = ocr_module.validate_and_consolidate_with_gemini(ocr_texts, img)
 
     debug_print("DIARY CONTENTS", diary_contents)
+
+    styleText = "comic book panel"
+    # Style Set Up
+    if style_input == "cartoon (default)":
+        styleText = "comic book panel"
+    elif style_input == "photorealistic":
+        styleText = "professional photograph"
+    elif style_input == "studio ghibli":
+        styleText = "90s studio ghibli stylized screenshot"
+    elif style_input == "modern anime":
+        styleText = "makoto shinkai-style modern anime screenshot"
+    elif style_input == "digital painting":
+        styleText = "abstract cubism portrait"
+    elif style_input == "oil painting":
+        styleText = "van gogh post-impressionist painting"
+    elif style_input == "watercolor":
+        styleText = "watercolor painting"
+    elif style_input == "minecraft":
+        styleText = "blocky minecraft screenshot with a custom player skin"
 
     progress(0.25, 'generating author description...')
 
@@ -136,7 +158,7 @@ Do not include any extra text as your response will be used as a string in a Pyt
     image_prompts = prompts_v1.split('\n-----\n')
 
     def prompt_editor(prompt):
-        return "Single comic book panel of " + prompt[0:1].lower() + prompt[1:]
+        return "" + prompt[0:1].lower() + prompt[1:] + ", stylized as a single " + styleText
 
     modified_image_prompts = [prompt_editor(prompt) for prompt in image_prompts]
 
@@ -267,7 +289,7 @@ def replace_panel(comic_image, variations_image, *selected_indices):
 
 # UI design
 # Define the UI elements
-demo = gr.Blocks(theme=gr.themes.Soft())
+demo = gr.Blocks(theme=gr.themes.Citrus())
 with demo:
     # @TODO: Set the title to be the center of the page
     gr.Markdown("# Image To Comic")
@@ -276,6 +298,9 @@ with demo:
         diary_input = gr.Image(type='pil', label='Diary Entry')
         author_input = gr.Image(type='pil', label='Diary Author')
     
+    with gr.Row():
+        style_input = gr.Dropdown(["cartoon (default)", "digital painting", "oil painting", "watercolor", "photorealistic", "studio ghibli", "modern anime", "minecraft"], label="Stylization")
+
     with gr.Row():
         submit_btn = gr.Button("Generate Comic", variant="primary")
     
@@ -341,7 +366,7 @@ with demo:
     # Set up click events
     submit_btn.click(
         fn=describe_image,
-        inputs=[diary_input, author_input],
+        inputs=[diary_input, author_input, style_input],
         outputs=[
             comic_output, 
             variation_selections, 
@@ -355,7 +380,7 @@ with demo:
     
     regenerate_btn.click(
         fn=describe_image,
-        inputs=[diary_input, author_input],
+        inputs=[diary_input, author_input, style_input],
         outputs=[
             comic_output, 
             variation_selections, 
