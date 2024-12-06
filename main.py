@@ -12,7 +12,6 @@ import ocr_module
 # Set up the Vision API using Credential file
 client = vision.ImageAnnotatorClient.from_service_account_file(env.GOOGLE_VISION_API_KEY_PATH)
 
-
 genai.configure(api_key=env.GEMINI_API_KEY)
 
 gemini_model = genai.GenerativeModel('gemini-1.5-flash')
@@ -20,9 +19,19 @@ gemini_model = genai.GenerativeModel('gemini-1.5-flash')
 pipe = AutoPipelineForText2Image.from_pretrained("stabilityai/sdxl-turbo", torch_dtype=torch.float16, variant="fp16")
 pipe.to("cuda")
 
+
+# for debugging only
+def debug_print(title, contents):
+    print()
+    print('==================================================')
+    print(title)
+    print('==================================================')
+    print(contents)
+    print()
+
+
 def describe_image(diary_image, author_image):
     if diary_image is None or author_image is None:
-        # TODO: actual error message
         gr.Warning("Please upload both images before generating the comic.")
         return
     # OCR Set Up
@@ -32,11 +41,10 @@ def describe_image(diary_image, author_image):
     progress = gr.Progress()
     progress(0.2, 'Reading text from diary image...')
 
-    orc_texts, img = ocr_module.get_ocr_texts(diary_image=diary_image)
-    diary_contents = ocr_module.validate_and_consolidate_with_gemini(orc_texts, img)
-    
-    # for debugging only
-    print(diary_contents)
+    ocr_texts, img = ocr_module.get_ocr_texts(diary_image=diary_image)
+    diary_contents = ocr_module.validate_and_consolidate_with_gemini(ocr_texts, img)
+
+    debug_print("DIARY CONTENTS", diary_contents)
 
     progress((current_gemini_step, num_gemini_steps), 'generating prompts v1...')
     current_gemini_step += 1
@@ -109,6 +117,8 @@ Do not include any extra text as your response will be used as a string in a Pyt
     response = gemini_model.generate_content([gemini_prompt])
     prompts_v1 = response.text.strip()
 
+    debug_print("PROMPTS", prompts_v1)
+
     image_prompts = prompts_v1.split('\n-----\n')
 
     def prompt_editor(prompt):
@@ -150,10 +160,18 @@ Attached is a grid of AI-generated images, with {num_panels} rows and {num_varia
 
 {diary_contents}
 
-Pick the best combination of {num_panels} panels such that there is exactly one in each category. When choosing panels, take the following into account:
-- Image quality (e.g. don't choose images with extra limbs or lots of noise)
-- Narrative progression
-- Consistent art style
+Pick the best combination of {num_panels} panels such that there is exactly one in each category.
+
+A good panel has:
+- A clear subject
+- Narrative progression from the previous panel and into the next panel
+- An art style consistent with the other selected panels
+
+Characteristics to avoid (i.e. to not select panels with) include:
+- Extra limbs
+- Image noise
+- Too much text
+- Warped or distorted imagery
 
 Output your choices in a comma-delimited list, with 0 being the left-most image for that row and {num_variations_per_panel - 1} being the right-most image for that row. Do not include any extra text as your response will be used as a string in a Python program and it needs to be concise.
     '''
@@ -242,8 +260,8 @@ with demo:
     gr.Markdown("# Image To Comic")
     
     with gr.Row():
-        diary_input = gr.Image(type='pil', label='diary entry')
-        author_input = gr.Image(type='pil', label='diary author')
+        diary_input = gr.Image(type='pil', label='Diary Entry')
+        author_input = gr.Image(type='pil', label='Diary Author')
     
     with gr.Row():
         submit_btn = gr.Button("Generate Comic", variant="primary")
@@ -293,7 +311,7 @@ with demo:
         Get the index of the selected image in the current gallery
         '''
         
-        gr.Warning(f"Selected index: {evt.index}")
+        gr.Warning(f"Selected index {evt.index} for panel {i}.")
         selected_indices[int(i)] = evt.index
         return evt.index, *selected_indices
     
