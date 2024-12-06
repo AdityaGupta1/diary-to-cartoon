@@ -35,47 +35,44 @@ def describe_image(diary_image, author_image):
         gr.Warning("Please upload both images before generating the comic.")
         return
     # OCR Set Up
-    num_gemini_steps = 3
-    current_gemini_step = 0
     
     progress = gr.Progress()
-    progress(0.2, 'Reading text from diary image...')
+    progress(0, 'reading text from diary image...')
 
     ocr_texts, img = ocr_module.get_ocr_texts(diary_image=diary_image)
     diary_contents = ocr_module.validate_and_consolidate_with_gemini(ocr_texts, img)
 
     debug_print("DIARY CONTENTS", diary_contents)
 
-    progress((current_gemini_step, num_gemini_steps), 'generating prompts v1...')
-    current_gemini_step += 1
+    progress(0.25, 'generating author description...')
 
     gemini_prompt = f'''
-    Here are example descriptions of individuals, based on their images. These examples serve as guidelines for style and structure:
+Here are example descriptions of individuals, based on their images. These examples serve as guidelines for style and structure:
 
-    A black American man in his early to mid-30s with a dark complexion, a full, thick black beard, braided hair, and an oval face shape, wearing a blue sports jersey
-    -----
-    A white American man in his late 20s to early 30s, with a close-cropped haircut, a short beard, and an oval face shape, wearing glasses and a black hoodie with a small white logo
-    -----
-    A Korean woman in her early 20s, with long, wavy reddish-brown hair styled in pigtails, straight bangs, and a round face shape, wearing a white button-up shirt
-    -----
-    A Filipino woman in her 60s or 70s, with short, slightly wavy dark hair, and a round face shape, wearing a bright pink sweater
-    -----
-    A Korean woman in her early 20s, with long, straight black hair, a heart-shaped face, and a light blue tank top with thin black straps
-    -----
-    A Pakistani man in his 60s or 70s, with short, graying hair, a prominent, weathered face with deep wrinkles, and a salt-and-pepper beard, wearing a light-colored collared shirt
-    -----
-    A Filipino-American man in his 30s, with medium brown skin, styled curly hair, and a thin mustache, wearing large red-tinted sunglasses, a retro-style patterned suit with a wide collar, and layered necklaces
-    -----
-    An Italian man in his 30s or 40s with a light complexion and a neatly trimmed beard, wearing a black fedora hat with a brown band, a dark, textured overcoat with a double-breasted design, and a dark undershirt
+A black American man in his early to mid-30s with a dark complexion, a full, thick black beard, braided hair, and an oval face shape, wearing a blue sports jersey
+-----
+A white American man in his late 20s to early 30s, with a close-cropped haircut, a short beard, and an oval face shape, wearing glasses and a black hoodie with a small white logo
+-----
+A Korean woman in her early 20s, with long, wavy reddish-brown hair styled in pigtails, straight bangs, and a round face shape, wearing a white button-up shirt
+-----
+A Filipino woman in her 60s, with short, slightly wavy dark hair, and a round face shape, wearing a bright pink sweater
+-----
+A Indian woman in her early 20s, with long, straight black hair, a heart-shaped face, and a light blue tank top with thin black straps
+-----
+A Pakistani man in his 60s, with short, graying hair, a prominent, weathered face with deep wrinkles, and a salt-and-pepper beard, wearing a light-colored collared shirt
+-----
+A Mexican man in his 30s, with medium brown skin, styled curly hair, and a thin mustache, wearing large red-tinted sunglasses, a retro-style patterned suit with a wide collar, and layered necklaces
+-----
+An Italian man in his 30s with a light complexion and a neatly trimmed beard, wearing a black fedora hat with a brown band, a dark, textured overcoat with a double-breasted design, and a dark undershirt
 
-    Use these examples to generate a description of the individual in the attached image.
-    Describe their features such as age, ethnicity, complexion, hair, clothing, clothing color, face shape, or other distinguishing characteristics in a similar style.
-    Keep the description within one sentence as it will be used to generate comic prompts.
+Use these examples to generate a description of the individual in the attached image.
+Describe their features such as age, ethnicity, complexion, hair, clothing, clothing color, face shape, or other distinguishing characteristics in a similar style.
+Keep the description within one sentence as it will be used to generate comic prompts.
     '''
     response = gemini_model.generate_content([gemini_prompt, author_image])
     author_description = response.text.strip()
-    progress((current_gemini_step, num_gemini_steps), 'generating prompts v1...')
-    current_gemini_step += 1
+
+    progress(0.5, 'generating image prompts...')
 
     gemini_prompt = f'''
 Here is a diary entry:
@@ -145,8 +142,7 @@ Do not include any extra text as your response will be used as a string in a Pyt
         for y in range(num_panels):
             variations_image.paste(images[y * num_variations_per_panel + x], (x * image_width, y * image_height))
 
-    progress((current_gemini_step, num_gemini_steps), 'selecting panels...')
-    current_gemini_step += 1
+    progress(0.75, 'selecting panels...')
 
     example_variation_choices = ""
     example_variation_idx = 0
