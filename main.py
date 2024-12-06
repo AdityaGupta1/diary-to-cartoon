@@ -11,7 +11,6 @@ import ocr_module
 
 # Set up the Vision API using Credential file
 client = vision.ImageAnnotatorClient.from_service_account_file(env.GOOGLE_VISION_API_KEY_PATH)
-# genai.configure(api_key="AIzaSyCw49iyoPsrlNwON9hX5-CMamftXyYPXQQ")
 genai.configure(api_key=env.GEMINI_API_KEY)
 
 gemini_model = genai.GenerativeModel('gemini-1.5-flash')

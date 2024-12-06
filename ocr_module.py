@@ -8,7 +8,6 @@ import numpy as np
 from difflib import SequenceMatcher
 import google.generativeai as genai
 genai.configure(api_key=env.GEMINI_API_KEY)
-genai.configure(api_key="AIzaSyCw49iyoPsrlNwON9hX5-CMamftXyYPXQQ")
 
 '''
 This file is used to test the validity of OCR tools used in this project
