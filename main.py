@@ -57,20 +57,37 @@ A Korean woman in her early 20s, with long, wavy reddish-brown hair styled in pi
 -----
 A Filipino woman in her 60s, with short, slightly wavy dark hair, and a round face shape, wearing a bright pink sweater
 -----
-A Indian woman in her early 20s, with long, straight black hair, a heart-shaped face, and a light blue tank top with thin black straps
+A Indian woman in her early 20s, with long, straight black hair, an angular face, and a light blue tank top with thin black straps
 -----
 A Pakistani man in his 60s, with short, graying hair, a prominent, weathered face with deep wrinkles, and a salt-and-pepper beard, wearing a light-colored collared shirt
 -----
 A Mexican man in his 30s, with medium brown skin, styled curly hair, and a thin mustache, wearing large red-tinted sunglasses, a retro-style patterned suit with a wide collar, and layered necklaces
 -----
 An Italian man in his 30s with a light complexion and a neatly trimmed beard, wearing a black fedora hat with a brown band, a dark, textured overcoat with a double-breasted design, and a dark undershirt
+-----
+A Bengal cat with a sleek coat patterned in gold and black rosettes, and bright green eyes
+-----
+A vintage typewriter, with a black metal body, round white keys with black lettering, and a chrome return lever
+-----
+A Golden Retriever puppy, with fluffy cream-colored fur, floppy ears, and a wagging tail
+-----
+A small bonsai tree, with a thick, gnarled trunk, lush green foliage, and a ceramic pot painted with blue waves
+-----
+A European Robin, with a bright orange chest, brown wings, and a small, sharp black beak
+-----
+A classic red and white Coca-Cola vending machine, with a retro design and a shiny chrome handle
+-----
+A Siamese fighting fish, with iridescent blue and green scales, long flowing fins, and a forked tail
 
 Use these examples to generate a description of the individual in the attached image.
 Describe their features such as age, ethnicity, complexion, hair, clothing, clothing color, face shape, or other distinguishing characteristics in a similar style.
 Keep the description within one sentence as it will be used to generate comic prompts.
+The description should not include any details of the background or objects/characters other than the main subject.
     '''
     response = gemini_model.generate_content([gemini_prompt, author_image])
-    author_description = response.text.strip()
+    author_description = response.text.strip().replace(".", "")
+
+    debug_print("AUTHOR DESCRIPTION", author_description)
 
     progress(0.5, 'generating image prompts...')
 
@@ -119,7 +136,7 @@ Do not include any extra text as your response will be used as a string in a Pyt
     image_prompts = prompts_v1.split('\n-----\n')
 
     def prompt_editor(prompt):
-        return "A comic book panel of " + prompt[0:1].lower() + prompt[1:]
+        return "Single comic book panel of " + prompt[0:1].lower() + prompt[1:]
 
     modified_image_prompts = [prompt_editor(prompt) for prompt in image_prompts]
 
