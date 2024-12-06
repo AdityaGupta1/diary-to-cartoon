@@ -170,3 +170,4 @@ gvision_credentials.json
 
 # Ignore everything under the folder tests
 tests/
+debugs/
